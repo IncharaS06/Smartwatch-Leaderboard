@@ -7,19 +7,24 @@ import com.smartwatch.leaderboard.model.Role;
 import com.smartwatch.leaderboard.model.User;
 import com.smartwatch.leaderboard.repository.UserRepository;
 import com.smartwatch.leaderboard.security.JwtService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@RequiredArgsConstructor
 public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+
+    // Manual constructor
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
+    }
 
     @Transactional
     public String register(UserRegistrationDto dto) {
@@ -31,8 +36,8 @@ public class AuthService {
                 .phone(dto.getPhone())
                 .email(dto.getEmail())
                 .fullName(dto.getFullName())
-                .password(passwordEncoder.encode(dto.getPassword())) // Hashed via BCrypt
-                .role(Role.ROLE_USER) // General registration defaults to USER
+                .password(passwordEncoder.encode(dto.getPassword()))
+                .role(Role.ROLE_USER) // General public registration supports ROLE_USER
                 .build();
 
         userRepository.save(user);
@@ -50,14 +55,17 @@ public class AuthService {
 
         String token = jwtService.generateToken(user);
 
+        // Include user details (including the important userId!) inside the token response
         return TokenResponse.builder()
                 .accessToken(token)
-                .refreshToken(null) // explicit requirement
+                .refreshToken(null)
+                .userId(user.getId())
+                .fullName(user.getFullName())
+                .role(user.getRole().name())
                 .build();
     }
 
     public void logout() {
-        // Stateless logout clears context
         SecurityContextHolder.clearContext();
     }
 }
